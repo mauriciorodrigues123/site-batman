@@ -86,6 +86,28 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
+// ------------------ MANEJO DE LOCALSTORAGE ------------------
+// Ao carregar a página, verifica se existe pagamento pendente
+window.addEventListener('DOMContentLoaded', () => {
+    const savedPaymentId = localStorage.getItem('paymentId');
+    const savedEmail = localStorage.getItem('userEmail');
+
+    if (savedPaymentId && savedEmail) {
+        paymentId = savedPaymentId;
+        userEmail = savedEmail;
+
+        // Mostra a interface de pagamento em andamento
+        paymentForm.style.display = 'none';
+        paymentInfo.style.display = 'block';
+
+        // QR code vazio, pois não é necessário depois do pagamento
+        qrcodeImg.src = '';
+        pixCodeInput.value = '';
+
+        checkPaymentStatus(); // Continua verificando status
+    }
+});
+
 // Evento para gerar o PIX
 generatePixBtn.addEventListener('click', async () => {
     const email = emailInput.value.trim();
@@ -136,11 +158,13 @@ generatePixBtn.addEventListener('click', async () => {
 
         const data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(data.error || 'Erro ao gerar PIX');
-        }
+        if (!response.ok) throw new Error(data.error || 'Erro ao gerar PIX');
 
         paymentId = data.payment_id;
+
+        // Salvar no localStorage
+        localStorage.setItem('paymentId', paymentId);
+        localStorage.setItem('userEmail', userEmail);
 
         qrcodeImg.src = `data:image/png;base64,${data.pix_code_base64}`;
         pixCodeInput.value = data.pix_code;
@@ -150,9 +174,7 @@ generatePixBtn.addEventListener('click', async () => {
 
         showNotification('QR Code PIX gerado com sucesso! Escaneie para realizar o pagamento.', 'success');
 
-        // 🔹 FUNÇÃO ALTERADA: usa backend como fonte da verdade
         checkPaymentStatus();
-
     } catch (error) {
         showNotification(`Erro: ${error.message}`, 'error');
         generatePixBtn.innerHTML = '<i class="fas fa-qrcode"></i> Gerar PIX';
@@ -161,7 +183,7 @@ generatePixBtn.addEventListener('click', async () => {
     }
 });
 
-// Função para verificar status do pagamento (adaptada)
+// Função para verificar status do pagamento
 async function checkPaymentStatus() {
     if (!paymentId) return;
 
@@ -194,10 +216,14 @@ function showPaymentConfirmed() {
 
     showNotification('Pagamento confirmado com sucesso! Um email de confirmação foi enviado.', 'success');
 
+    // Limpa localStorage pois o pagamento foi concluído
+    localStorage.removeItem('paymentId');
+    localStorage.removeItem('userEmail');
+
     sendConfirmationEmailToUser(userEmail);
 }
 
-// Eventos restantes (copiar PIX, novo pagamento, envio de email) permanecem iguais
+// Evento para copiar código PIX
 copyPixBtn.addEventListener('click', () => {
     pixCodeInput.select();
     document.execCommand('copy');
@@ -211,6 +237,7 @@ copyPixBtn.addEventListener('click', () => {
     }, 2000);
 });
 
+// Evento para novo pagamento
 newPaymentBtn.addEventListener('click', () => {
     if (checkStatusInterval) clearInterval(checkStatusInterval);
 
@@ -235,6 +262,9 @@ newPaymentBtn.addEventListener('click', () => {
 
     paymentId = null;
     userEmail = null;
+
+    localStorage.removeItem('paymentId');
+    localStorage.removeItem('userEmail');
 });
 
 // Função de envio de email ao usuário
