@@ -14,9 +14,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuração de middlewares
-app.use(cors());
-app.use(express.json());
-app.use(express.static('public'));
+app.use(cors()); // Permite requisições de outros domínios
+app.use(express.json()); // Permite receber dados em formato JSON
+app.use(express.static('public')); // Serve arquivos estáticos da pasta 'public'
 
 // Configuração do Mercado Pago
 mercadopago.configure({
@@ -24,10 +24,7 @@ mercadopago.configure({
     sandbox: process.env.MERCADOPAGO_SANDBOX === 'true'
 });
 
-// ---------- MAPA DE STATUS (em memória) ----------
-const paymentStatuses = new Map();
-
-// ---------- Configuração do serviço de email ----------
+// Configuração do serviço de email
 const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: parseInt(process.env.EMAIL_PORT),
@@ -57,11 +54,13 @@ async function sendConfirmationEmail(email) {
                     <p style="font-size: 16px; line-height: 1.5;">Aqui está seu link de acesso:</p>
                     <p style="text-align: center;">
                         <a href="https://drive.google.com/drive/folders/1AMYsrQMYODw9i1l8zthuHm7WjO247oby?usp=drive_link" 
-                           style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                        style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
                             Acessar Conteúdo
                         </a>
                     </p>
-                    <p style="margin-top: 20px; font-size: 14px;">Link direto: <a href="https://drive.google.com/drive/folders/1AMYsrQMYODw9i1l8zthuHm7WjO247oby?usp=drive_link">Clique aqui</a></p>
+                    <p style="margin-top: 20px; font-size: 14px;">Link direto: 
+                        <a href="https://drive.google.com/drive/folders/1AMYsrQMYODw9i1l8zthuHm7WjO247oby?usp=drive_link">Clique aqui</a>
+                    </p>
                 </div>
             `
         };
@@ -69,6 +68,7 @@ async function sendConfirmationEmail(email) {
         const info = await transporter.sendMail(mailOptions);
         console.log('Email enviado com sucesso:', info.response);
         return true;
+
     } catch (error) {
         console.error('Erro ao enviar email:', error);
         return false;
@@ -79,8 +79,9 @@ async function sendConfirmationEmail(email) {
 app.post('/api/create-payment', async (req, res) => {
     try {
         const { email } = req.body;
-        const amount = 0.10;
+        const amount = 0.10; // Valor fixo de 10 centavos
 
+        // Validar dados recebidos
         if (!email) {
             return res.status(400).json({ error: 'Email é obrigatório' });
         }
@@ -90,23 +91,17 @@ app.post('/api/create-payment', async (req, res) => {
             return res.status(400).json({ error: 'Email inválido' });
         }
 
+        // Criar pagamento PIX no Mercado Pago
         const paymentData = {
             transaction_amount: amount,
             description: `Pagamento PIX - ${email}`,
             payment_method_id: 'pix',
-            payer: {
-                email: email
-            }
+            payer: { email: email }
         };
 
         console.log('Criando pagamento PIX:', paymentData);
-
         const result = await mercadopago.payment.create(paymentData);
-
         console.log('Pagamento criado com sucesso:', result.body.id);
-
-        // Armazenar status inicial no mapa
-        paymentStatuses.set(result.body.id, result.body.status);
 
         res.json({
             success: true,
@@ -118,112 +113,99 @@ app.post('/api/create-payment', async (req, res) => {
 
     } catch (error) {
         console.error('Erro ao criar pagamento:', error);
-
-        res.status(500).json({
-            error: 'Erro interno do servidor',
-            message: error.message
-        });
+        res.status(500).json({ error: 'Erro interno do servidor', message: error.message });
     }
 });
 
-// Rota para verificar status do pagamento (frontend consulta)
-app.get('/api/payment-status/:paymentId', (req, res) => {
-    const { paymentId } = req.params;
-    const status = paymentStatuses.get(paymentId) || 'pending';
-    res.json({
-        success: true,
-        payment_id: paymentId,
-        status: status
-    });
+// Rota para verificar status do pagamento
+app.get('/api/payment-status/:paymentId', async (req, res) => {
+    try {
+        const { paymentId } = req.params;
+        const result = await mercadopago.payment.findById(paymentId);
+
+        // Se o pagamento estiver aprovado, enviar email
+        if (result.body.status === 'approved') {
+            const email = result.body.payer.email;
+            await sendConfirmationEmail(email);
+            console.log(`Email de confirmação enviado para: ${email}`);
+        }
+
+        res.json({
+            success: true,
+            payment_id: result.body.id,
+            status: result.body.status,
+            status_detail: result.body.status_detail
+        });
+
+    } catch (error) {
+        console.error('Erro ao verificar status:', error);
+        res.status(500).json({ error: 'Erro ao verificar status do pagamento', message: error.message });
+    }
+});
+
+// Rota para enviar email manualmente
+app.post('/api/send-confirmation-email', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ error: 'Email é obrigatório' });
+        }
+
+        console.log(`Recebida solicitação para enviar email para: ${email}`);
+        const success = await sendConfirmationEmail(email);
+
+        if (success) {
+            res.json({ success: true, message: `Email de confirmação enviado para: ${email}` });
+        } else {
+            res.status(500).json({ error: 'Falha ao enviar email' });
+        }
+
+    } catch (error) {
+        console.error('Erro ao enviar email:', error);
+        res.status(500).json({ error: 'Erro ao enviar email', message: error.message });
+    }
 });
 
 // Rota para webhook do Mercado Pago (confirmação de pagamento)
 app.post('/api/webhook', async (req, res) => {
     try {
         const { type, data } = req.body;
-
         console.log('Webhook recebido:', { type, data });
 
         if (type === 'payment') {
-            console.log('Pagamento confirmado (webhook):', data.id);
-
-            // Buscar informações do pagamento para obter email e status
+            console.log('Pagamento confirmado:', data.id);
             const paymentInfo = await mercadopago.payment.findById(data.id);
             const email = paymentInfo.body.payer.email;
-            const status = paymentInfo.body.status;
 
-            // Atualizar status no mapa
-            paymentStatuses.set(data.id, status);
-
-            // Se aprovado, enviar email
-            if (status === 'approved') {
-                await sendConfirmationEmail(email);
-                console.log(`Email de confirmação enviado para: ${email}`);
-            }
+            await sendConfirmationEmail(email);
+            console.log(`Email de confirmação enviado para: ${email}`);
         }
 
-        res.sendStatus(200);
+        res.status(200).json({ received: true });
+
     } catch (error) {
         console.error('Erro no webhook:', error);
-        res.sendStatus(500);
+        res.status(500).json({ error: 'Erro no webhook' });
     }
 });
 
-// Rota para teste de envio de email manual
-app.post('/api/send-confirmation-email', async (req, res) => {
-    try {
-        const { email } = req.body;
-
-        if (!email) {
-            return res.status(400).json({ error: 'Email é obrigatório' });
-        }
-
-        console.log(`Recebida solicitação para enviar email para: ${email}`);
-
-        const success = await sendConfirmationEmail(email);
-
-        if (success) {
-            res.json({
-                success: true,
-                message: `Email de confirmação enviado para: ${email}`
-            });
-        } else {
-            res.status(500).json({
-                error: 'Falha ao enviar email'
-            });
-        }
-    } catch (error) {
-        console.error('Erro ao enviar email:', error);
-        res.status(500).json({
-            error: 'Erro ao enviar email',
-            message: error.message
-        });
-    }
-});
-
-// Rota para testar o envio de email (GET)
+// Rota para testar o envio de email
 app.get('/api/test-email', async (req, res) => {
     try {
         const email = req.query.email || 'teste@exemplo.com';
-
         console.log(`Testando envio de email para: ${email}`);
 
         const success = await sendConfirmationEmail(email);
 
         if (success) {
-            res.json({
-                success: true,
-                message: `Email de teste enviado para: ${email}`
-            });
+            res.json({ success: true, message: `Email de teste enviado para: ${email}` });
         } else {
             throw new Error('Falha ao enviar email de teste');
         }
+
     } catch (error) {
         console.error('Erro ao enviar email de teste:', error);
-        res.status(500).json({
-            error: 'Erro ao enviar email de teste',
-            message: error.message
-        });
+        res.status(500).json({ error: 'Erro ao enviar email de teste', message: error.message });
     }
 });
 
