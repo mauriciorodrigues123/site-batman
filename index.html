@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batman - Pagamento PIX</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="batman-logo"></div>
+        <h1>Absolute Batman Pagamento via PIX</h1>
+        
+        <!-- Nova seção sobre o produto -->
+        <div class="product-section">
+            <h2><i class="fas fa-book"></i> Batman Absolute - Coleção Completa</h2>
+
+            <div class="product-description">
+                <p>Mergulhe no universo sombrio do batman absolute com a <strong>com (Volumes 1 a 12 no momento)</strong>, completamente em português!</p>
+                <p>Esta coleção de luxo traz todas as 12 edições icônicas do Batman com arte deslumbrante e acabamento premium, reunindo os melhores roteiristas e desenhistas da DC Comics.</p>
+                <p>Conteúdo exclusivo:</p>
+                <ul>
+                    <li><i class="fas fa-check"></i> 12 volumes completos e sem cortes</li>
+                    <li><i class="fas fa-check"></i> Arte restaurada em alta definição</li>
+                    <li><i class="fas fa-check"></i> Tradução para o português</li>
+                </ul>
+                <div class="delivery-info">
+                    <i class="fas fa-bolt"></i> <strong>Entrega digital imediata:</strong> Após a confirmação do pagamento, todas as 12 edições serão enviadas diretamente para seu email em minutos!
+                </div>
+            </div>
+        </div>
+        
+        <div id="payment-form">
+            <div class="form-group">
+                <label for="email"><i class="fas fa-envelope"></i> Seu Email:</label>
+                <input type="email" id="email" placeholder="seu@email.com" required>
+                <span class="error-message"><i class="fas fa-exclamation-circle"></i> Email inválido</span>
+            </div>
+            
+            <div class="form-group">
+                <label for="confirm-email"><i class="fas fa-check-circle"></i> Confirme seu Email:</label>
+                <input type="email" id="confirm-email" placeholder="seu@email.com" required>
+                <span class="error-message"><i class="fas fa-exclamation-circle"></i> Os emails não coincidem</span>
+            </div>
+            
+            <div class="form-group valor-fixo">
+                <label for="amount"><i class="fas fa-money-bill-wave"></i> Valor:</label>
+                <div class="valor-display">R$ 10,00</div>
+            </div>
+            
+            <button id="generate-pix" class="btn"><i class="fas fa-qrcode"></i> Gerar PIX</button>
+        </div>
+        
+        <div id="payment-info" style="display: none;">
+            <h2><i class="fas fa-qrcode"></i> Escaneie o QR Code para pagar</h2>
+            <div id="qrcode-container">
+                <img id="qrcode" src="" alt="QR Code PIX">
+            </div>
+            <div id="pix-code-container">
+                <p><i class="fas fa-copy"></i> Ou copie o código PIX:</p>
+                <div class="copy-container">
+                    <input type="text" id="pix-code" readonly>
+                    <button id="copy-pix" class="btn-copy"><i class="fas fa-clipboard"></i> Copiar</button>
+                </div>
+            </div>
+            <div id="payment-status">
+                <p>Status: <span id="status-text">Aguardando pagamento</span></p>
+                <div class="loader" id="status-loader"></div>
+            </div>
+            <div id="notification-area"></div>
+            <button id="new-payment" class="btn"><i class="fas fa-redo"></i> Novo Pagamento</button>
+        </div>
+    </div>
+    
+    <script src="/js/app.js"></script>
+</body>
+</html>
