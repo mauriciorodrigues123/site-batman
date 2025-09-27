@@ -110,7 +110,7 @@ generatePixBtn.addEventListener('click', async () => {
 
         paymentId = data.payment_id;
 
-        // Salvar no localStorage para persistência
+        // Salvar no localStorage
         localStorage.setItem('paymentId', paymentId);
         localStorage.setItem('userEmail', userEmail);
         localStorage.setItem('pixCodeBase64', data.pix_code_base64);
@@ -167,7 +167,7 @@ function showPaymentConfirmed() {
 
     sendConfirmationEmailToUser(userEmail);
 
-    // Limpar localStorage após confirmação
+    // Limpar localStorage
     localStorage.removeItem('paymentId');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('pixCodeBase64');
@@ -223,8 +223,8 @@ async function sendConfirmationEmailToUser(email) {
     }
 }
 
-// ✅ Recuperar pagamento pendente no carregamento da página
-window.addEventListener('load', () => {
+// Recuperar pagamento pendente ao carregar a página
+window.addEventListener('load', async () => {
     const savedPaymentId = localStorage.getItem('paymentId');
     const savedEmail = localStorage.getItem('userEmail');
     const savedPixCode = localStorage.getItem('pixCodeBase64');
@@ -237,6 +237,20 @@ window.addEventListener('load', () => {
         paymentForm.style.display = 'none';
         paymentInfo.style.display = 'block';
 
-        checkPaymentStatus();
+        try {
+            // Consulta imediata do status
+            const response = await fetch(`/api/payment-status/${paymentId}`);
+            const data = await response.json();
+
+            if (data.status === 'approved') {
+                showPaymentConfirmed();
+            } else {
+                // Se ainda não aprovado, inicia o intervalo
+                checkPaymentStatus();
+            }
+        } catch (error) {
+            console.error('Erro ao verificar status no carregamento:', error);
+            checkPaymentStatus();
+        }
     }
 });
