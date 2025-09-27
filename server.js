@@ -53,12 +53,12 @@ async function sendConfirmationEmail(email) {
                     <p style="font-size: 16px; line-height: 1.5;">Seu pagamento foi confirmado com sucesso.</p>
                     <p style="font-size: 16px; line-height: 1.5;">Aqui está seu link de acesso:</p>
                     <p style="text-align: center;">
-                        <a href="https://drive.google.com/drive/folders/1AMYsrQMYODw9i1l8zthuHm7WjO247oby?usp=drive_link" 
+                        <a href="https://drive.google.com/drive/folders/1AMYsrQMYODw9i1l8zthuHm7WjO247oby?usp=drive_link"
                         style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
                             Acessar Conteúdo
                         </a>
                     </p>
-                    <p style="margin-top: 20px; font-size: 14px;">Link direto: 
+                    <p style="margin-top: 20px; font-size: 14px;">Link direto:
                         <a href="https://drive.google.com/drive/folders/1AMYsrQMYODw9i1l8zthuHm7WjO247oby?usp=drive_link">Clique aqui</a>
                     </p>
                 </div>
@@ -79,9 +79,8 @@ async function sendConfirmationEmail(email) {
 app.post('/api/create-payment', async (req, res) => {
     try {
         const { email } = req.body;
-        const amount = 0.10; // Valor fixo de 10 centavos
+        const amount = 0.10; // Valor fixo
 
-        // Validar dados recebidos
         if (!email) {
             return res.status(400).json({ error: 'Email é obrigatório' });
         }
@@ -91,7 +90,6 @@ app.post('/api/create-payment', async (req, res) => {
             return res.status(400).json({ error: 'Email inválido' });
         }
 
-        // Criar pagamento PIX no Mercado Pago
         const paymentData = {
             transaction_amount: amount,
             description: `Pagamento PIX - ${email}`,
@@ -100,6 +98,7 @@ app.post('/api/create-payment', async (req, res) => {
         };
 
         console.log('Criando pagamento PIX:', paymentData);
+
         const result = await mercadopago.payment.create(paymentData);
         console.log('Pagamento criado com sucesso:', result.body.id);
 
@@ -123,7 +122,6 @@ app.get('/api/payment-status/:paymentId', async (req, res) => {
         const { paymentId } = req.params;
         const result = await mercadopago.payment.findById(paymentId);
 
-        // Se o pagamento estiver aprovado, enviar email
         if (result.body.status === 'approved') {
             const email = result.body.payer.email;
             await sendConfirmationEmail(email);
@@ -147,6 +145,7 @@ app.get('/api/payment-status/:paymentId', async (req, res) => {
 app.post('/api/send-confirmation-email', async (req, res) => {
     try {
         const { email } = req.body;
+
         if (!email) {
             return res.status(400).json({ error: 'Email é obrigatório' });
         }
