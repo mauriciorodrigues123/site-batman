@@ -53,12 +53,12 @@ async function sendConfirmationEmail(email) {
                     <p style="font-size: 16px; line-height: 1.5;">Seu pagamento foi confirmado com sucesso.</p>
                     <p style="font-size: 16px; line-height: 1.5;">Aqui está seu link de acesso:</p>
                     <p style="text-align: center;">
-                        <a href="https://drive.google.com/drive/folders/1AMYsrQMYODw9i1l8zthuHm7WjO247oby" 
+                        <a href="https://drive.google.com/drive/folders/1AMYsrQMYODw9i1l8zthuHm7WjO247oby?usp=drive_link" 
                            style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
                             Acessar Conteúdo
                         </a>
                     </p>
-                    <p style="margin-top: 20px; font-size: 14px;">Link direto: <a href="https://drive.google.com/drive/u/0/mobile/folders/1JPCtkMZrAoN1XujYbPrO1PjEhR43VgwM?usp=drive_link">Clique aqui</a></p>
+                    <p style="margin-top: 20px; font-size: 14px;">Link direto: <a href="https://drive.google.com/drive/folders/1AMYsrQMYODw9i1l8zthuHm7WjO247oby?usp=drive_link">Clique aqui</a></p>
                 </div>
             `
         };
@@ -77,7 +77,7 @@ app.post('/api/create-payment', async (req, res) => {
     try {
         const { email } = req.body;
         // Valor fixo de 10.00, ignorando o que foi enviado pelo cliente
-        const amount = 10.99;
+        const amount = 0.10;
 
         // Validar dados recebidos
         if (!email) {
