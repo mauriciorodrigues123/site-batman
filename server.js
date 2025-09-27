@@ -77,7 +77,7 @@ app.post('/api/create-payment', async (req, res) => {
     try {
         const { email } = req.body;
         // Valor fixo de 10.00, ignorando o que foi enviado pelo cliente
-        const amount = 10.00;
+        const amount = 10.99;
 
         // Validar dados recebidos
         if (!email) {

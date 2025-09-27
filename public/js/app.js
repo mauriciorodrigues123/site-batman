@@ -93,7 +93,7 @@ generatePixBtn.addEventListener('click', async () => {
     const email = emailInput.value.trim();
     const confirmEmail = confirmEmailInput.value.trim();
     // Valor fixo de 10.00
-    const amount = 10.00;
+    const amount = 10.99;
     
     if (!email) {
         emailInput.classList.add('input-error');
