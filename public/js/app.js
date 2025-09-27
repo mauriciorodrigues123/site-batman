@@ -25,7 +25,7 @@ function validateEmail() {
     const email = emailInput.value.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const isValid = emailRegex.test(email);
-    
+
     if (email === '') {
         emailInput.classList.remove('input-error', 'input-success');
         emailInput.nextElementSibling.style.display = 'none';
@@ -44,13 +44,13 @@ function validateEmail() {
 function validateEmails() {
     const email = emailInput.value.trim();
     const confirmEmail = confirmEmailInput.value.trim();
-    
+
     if (confirmEmail === '') {
         confirmEmailInput.classList.remove('input-error', 'input-success');
         confirmEmailInput.nextElementSibling.style.display = 'none';
         return;
     }
-    
+
     if (email !== confirmEmail) {
         confirmEmailInput.classList.add('input-error');
         confirmEmailInput.classList.remove('input-success');
@@ -66,21 +66,20 @@ function validateEmails() {
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
-    
+
     let icon = 'info-circle';
     if (type === 'success') icon = 'check-circle';
     if (type === 'error') icon = 'exclamation-circle';
-    
+
     notification.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
-    
+
     notificationArea.appendChild(notification);
-    
-    // Remover notificação após 5 segundos
+
     setTimeout(() => {
         notification.style.opacity = '0';
         notification.style.transform = 'translateY(-10px)';
         notification.style.transition = 'all 0.3s ease';
-        
+
         setTimeout(() => {
             notification.remove();
         }, 300);
@@ -89,27 +88,24 @@ function showNotification(message, type = 'info') {
 
 // Evento para gerar o PIX
 generatePixBtn.addEventListener('click', async () => {
-    // Validar formulário
     const email = emailInput.value.trim();
     const confirmEmail = confirmEmailInput.value.trim();
-    // Valor fixo de 10.00
     const amount = 0.10;
-    
+
     if (!email) {
         emailInput.classList.add('input-error');
         emailInput.focus();
         showNotification('Por favor, preencha seu email antes de gerar o PIX.', 'error');
         return;
     }
-    
+
     if (!confirmEmail) {
         confirmEmailInput.classList.add('input-error');
         confirmEmailInput.focus();
         showNotification('Por favor, confirme seu email antes de gerar o PIX.', 'error');
         return;
     }
-    
-    // Validar email
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
         emailInput.classList.add('input-error');
@@ -117,56 +113,46 @@ generatePixBtn.addEventListener('click', async () => {
         showNotification('Por favor, insira um email válido.', 'error');
         return;
     }
-    
-    // Validar confirmação de email
+
     if (email !== confirmEmail) {
         confirmEmailInput.classList.add('input-error');
         confirmEmailInput.focus();
         showNotification('Os emails não coincidem. Por favor, verifique.', 'error');
         return;
     }
-    
-    // Salvar email do usuário
+
     userEmail = email;
-    
-    // Mostrar loader
+
     generatePixBtn.innerHTML = '<span class="spinner"></span> Gerando PIX...';
     generatePixBtn.classList.add('btn-loading');
     generatePixBtn.disabled = true;
-    
+
     try {
-        // Criar pagamento PIX
         const response = await fetch('/api/create-payment', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount, email })
         });
-        
+
         const data = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(data.error || 'Erro ao gerar PIX');
         }
-        
-        // Salvar ID do pagamento
+
         paymentId = data.payment_id;
-        
-        // Exibir QR Code e código PIX
+
         qrcodeImg.src = `data:image/png;base64,${data.pix_code_base64}`;
         pixCodeInput.value = data.pix_code;
-        
-        // Mostrar informações de pagamento
+
         paymentForm.style.display = 'none';
         paymentInfo.style.display = 'block';
-        
-        // Mostrar notificação de sucesso
+
         showNotification('QR Code PIX gerado com sucesso! Escaneie para realizar o pagamento.', 'success');
-        
-        // Iniciar verificação de status
+
+        // 🔹 FUNÇÃO ALTERADA: usa backend como fonte da verdade
         checkPaymentStatus();
-        
+
     } catch (error) {
         showNotification(`Erro: ${error.message}`, 'error');
         generatePixBtn.innerHTML = '<i class="fas fa-qrcode"></i> Gerar PIX';
@@ -175,28 +161,23 @@ generatePixBtn.addEventListener('click', async () => {
     }
 });
 
-// Função para verificar status do pagamento
+// Função para verificar status do pagamento (adaptada)
 async function checkPaymentStatus() {
     if (!paymentId) return;
-    
-    // Mostrar notificação de verificação
-    showNotification('Verificando status do pagamento...', 'info');
-    
+
     checkStatusInterval = setInterval(async () => {
         try {
             const response = await fetch(`/api/payment-status/${paymentId}`);
             const data = await response.json();
-            
+
             if (data.status === 'approved') {
-                // Pagamento aprovado
                 clearInterval(checkStatusInterval);
                 showPaymentConfirmed();
             }
-            
         } catch (error) {
             console.error('Erro ao verificar status:', error);
         }
-    }, 3000); // Verificar a cada 3 segundos
+    }, 3000);
 }
 
 // Função para mostrar confirmação de pagamento
@@ -204,95 +185,75 @@ function showPaymentConfirmed() {
     statusText.textContent = 'Pagamento confirmado com sucesso!';
     statusText.classList.add('success');
     statusLoader.style.display = 'none';
-    
-    // Adicionar overlay ao QR Code
+
     const qrcodeContainer = document.getElementById('qrcode-container');
     const overlay = document.createElement('div');
     overlay.className = 'qrcode-overlay';
     overlay.innerHTML = '<i class="fas fa-check-circle"></i> Pagamento Confirmado';
     qrcodeContainer.appendChild(overlay);
-    
-    // Mostrar notificação de sucesso
+
     showNotification('Pagamento confirmado com sucesso! Um email de confirmação foi enviado.', 'success');
-    
-    // Enviar email de confirmação
+
     sendConfirmationEmailToUser(userEmail);
 }
 
-// Evento para copiar código PIX
+// Eventos restantes (copiar PIX, novo pagamento, envio de email) permanecem iguais
 copyPixBtn.addEventListener('click', () => {
     pixCodeInput.select();
     document.execCommand('copy');
-    
-    // Atualizar texto do botão
+
     const originalText = copyPixBtn.innerHTML;
     copyPixBtn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
-    
-    // Mostrar notificação
     showNotification('Código PIX copiado para a área de transferência!', 'success');
-    
+
     setTimeout(() => {
         copyPixBtn.innerHTML = originalText;
     }, 2000);
 });
 
-// Evento para novo pagamento
 newPaymentBtn.addEventListener('click', () => {
-    // Limpar intervalo de verificação
-    if (checkStatusInterval) {
-        clearInterval(checkStatusInterval);
-    }
-    
-    // Resetar formulário
+    if (checkStatusInterval) clearInterval(checkStatusInterval);
+
     emailInput.value = '';
     confirmEmailInput.value = '';
     emailInput.classList.remove('input-error', 'input-success');
     confirmEmailInput.classList.remove('input-error', 'input-success');
     emailInput.nextElementSibling.style.display = 'none';
     confirmEmailInput.nextElementSibling.style.display = 'none';
-    
+
     statusText.textContent = 'Aguardando pagamento';
     statusText.classList.remove('success', 'error');
     statusLoader.style.display = 'block';
     generatePixBtn.innerHTML = '<i class="fas fa-qrcode"></i> Gerar PIX';
     generatePixBtn.classList.remove('btn-loading');
     generatePixBtn.disabled = false;
-    
-    // Limpar notificações
+
     notificationArea.innerHTML = '';
-    
-    // Mostrar formulário novamente
+
     paymentForm.style.display = 'block';
     paymentInfo.style.display = 'none';
-    
-    // Limpar variáveis
+
     paymentId = null;
     userEmail = null;
 });
 
-// Função para enviar email de confirmação
+// Função de envio de email ao usuário
 async function sendConfirmationEmailToUser(email) {
     if (!email) return;
-    
+
     try {
-        // Primeira tentativa
         const response = await fetch('/api/send-confirmation-email', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email })
         });
-        
+
         if (!response.ok) {
-            // Se falhar, tentar novamente após 2 segundos
             setTimeout(async () => {
                 try {
                     await fetch('/api/send-confirmation-email', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ email })
                     });
                 } catch (retryError) {

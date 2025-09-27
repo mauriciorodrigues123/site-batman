@@ -14,9 +14,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuração de middlewares
-app.use(cors());                    // Permite requisições de outros domínios
-app.use(express.json());            // Permite receber dados em formato JSON
-app.use(express.static('public'));  // Serve arquivos estáticos da pasta 'public'
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
 
 // Configuração do Mercado Pago
 mercadopago.configure({
@@ -24,7 +24,10 @@ mercadopago.configure({
     sandbox: process.env.MERCADOPAGO_SANDBOX === 'true'
 });
 
-// Configuração do serviço de email
+// ---------- MAPA DE STATUS (em memória) ----------
+const paymentStatuses = new Map();
+
+// ---------- Configuração do serviço de email ----------
 const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: parseInt(process.env.EMAIL_PORT),
@@ -42,7 +45,7 @@ const transporter = nodemailer.createTransport({
 async function sendConfirmationEmail(email) {
     try {
         console.log(`Tentando enviar email para: ${email}`);
-        
+
         const mailOptions = {
             from: `"Confirmação de Pagamento" <${process.env.EMAIL_USER}>`,
             to: email,
@@ -76,25 +79,17 @@ async function sendConfirmationEmail(email) {
 app.post('/api/create-payment', async (req, res) => {
     try {
         const { email } = req.body;
-        // Valor fixo de 10.00, ignorando o que foi enviado pelo cliente
         const amount = 0.10;
 
-        // Validar dados recebidos
         if (!email) {
-            return res.status(400).json({
-                error: 'Email é obrigatório'
-            });
+            return res.status(400).json({ error: 'Email é obrigatório' });
         }
 
-        // Validar formato do email
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            return res.status(400).json({
-                error: 'Email inválido'
-            });
+            return res.status(400).json({ error: 'Email inválido' });
         }
 
-        // Criar pagamento PIX no Mercado Pago
         const paymentData = {
             transaction_amount: amount,
             description: `Pagamento PIX - ${email}`,
@@ -110,7 +105,9 @@ app.post('/api/create-payment', async (req, res) => {
 
         console.log('Pagamento criado com sucesso:', result.body.id);
 
-        // Retornar dados do PIX para o cliente
+        // Armazenar status inicial no mapa
+        paymentStatuses.set(result.body.id, result.body.status);
+
         res.json({
             success: true,
             payment_id: result.body.id,
@@ -121,7 +118,7 @@ app.post('/api/create-payment', async (req, res) => {
 
     } catch (error) {
         console.error('Erro ao criar pagamento:', error);
-        
+
         res.status(500).json({
             error: 'Erro interno do servidor',
             message: error.message
@@ -129,52 +126,62 @@ app.post('/api/create-payment', async (req, res) => {
     }
 });
 
-// Rota para verificar status do pagamento
-app.get('/api/payment-status/:paymentId', async (req, res) => {
-    try {
-        const { paymentId } = req.params;
-        
-        const result = await mercadopago.payment.findById(paymentId);
-        
-        // Se o pagamento estiver aprovado, enviar email
-        if (result.body.status === 'approved') {
-            const email = result.body.payer.email;
-            await sendConfirmationEmail(email);
-            console.log(`Email de confirmação enviado para: ${email}`);
-        }
-        
-        res.json({
-            success: true,
-            payment_id: result.body.id,
-            status: result.body.status,
-            status_detail: result.body.status_detail
-        });
+// Rota para verificar status do pagamento (frontend consulta)
+app.get('/api/payment-status/:paymentId', (req, res) => {
+    const { paymentId } = req.params;
+    const status = paymentStatuses.get(paymentId) || 'pending';
+    res.json({
+        success: true,
+        payment_id: paymentId,
+        status: status
+    });
+});
 
+// Rota para webhook do Mercado Pago (confirmação de pagamento)
+app.post('/api/webhook', async (req, res) => {
+    try {
+        const { type, data } = req.body;
+
+        console.log('Webhook recebido:', { type, data });
+
+        if (type === 'payment') {
+            console.log('Pagamento confirmado (webhook):', data.id);
+
+            // Buscar informações do pagamento para obter email e status
+            const paymentInfo = await mercadopago.payment.findById(data.id);
+            const email = paymentInfo.body.payer.email;
+            const status = paymentInfo.body.status;
+
+            // Atualizar status no mapa
+            paymentStatuses.set(data.id, status);
+
+            // Se aprovado, enviar email
+            if (status === 'approved') {
+                await sendConfirmationEmail(email);
+                console.log(`Email de confirmação enviado para: ${email}`);
+            }
+        }
+
+        res.sendStatus(200);
     } catch (error) {
-        console.error('Erro ao verificar status:', error);
-        
-        res.status(500).json({
-            error: 'Erro ao verificar status do pagamento',
-            message: error.message
-        });
+        console.error('Erro no webhook:', error);
+        res.sendStatus(500);
     }
 });
 
-// Rota para enviar email manualmente
+// Rota para teste de envio de email manual
 app.post('/api/send-confirmation-email', async (req, res) => {
     try {
         const { email } = req.body;
-        
+
         if (!email) {
-            return res.status(400).json({
-                error: 'Email é obrigatório'
-            });
+            return res.status(400).json({ error: 'Email é obrigatório' });
         }
-        
+
         console.log(`Recebida solicitação para enviar email para: ${email}`);
-        
+
         const success = await sendConfirmationEmail(email);
-        
+
         if (success) {
             res.json({
                 success: true,
@@ -187,7 +194,6 @@ app.post('/api/send-confirmation-email', async (req, res) => {
         }
     } catch (error) {
         console.error('Erro ao enviar email:', error);
-        
         res.status(500).json({
             error: 'Erro ao enviar email',
             message: error.message
@@ -195,41 +201,15 @@ app.post('/api/send-confirmation-email', async (req, res) => {
     }
 });
 
-// Rota para webhook do Mercado Pago (confirmação de pagamento)
-app.post('/api/webhook', async (req, res) => {
-    try {
-        const { type, data } = req.body;
-        
-        console.log('Webhook recebido:', { type, data });
-        
-        if (type === 'payment') {
-            console.log('Pagamento confirmado:', data.id);
-            
-            // Buscar informações do pagamento para obter o email
-            const paymentInfo = await mercadopago.payment.findById(data.id);
-            const email = paymentInfo.body.payer.email;
-            
-            // Enviar email de confirmação com o link de acesso
-            await sendConfirmationEmail(email);
-            console.log(`Email de confirmação enviado para: ${email}`);
-        }
-        
-        res.status(200).json({ received: true });
-    } catch (error) {
-        console.error('Erro no webhook:', error);
-        res.status(500).json({ error: 'Erro no webhook' });
-    }
-});
-
-// Rota para testar o envio de email
+// Rota para testar o envio de email (GET)
 app.get('/api/test-email', async (req, res) => {
     try {
         const email = req.query.email || 'teste@exemplo.com';
-        
+
         console.log(`Testando envio de email para: ${email}`);
-        
+
         const success = await sendConfirmationEmail(email);
-        
+
         if (success) {
             res.json({
                 success: true,
@@ -240,7 +220,6 @@ app.get('/api/test-email', async (req, res) => {
         }
     } catch (error) {
         console.error('Erro ao enviar email de teste:', error);
-        
         res.status(500).json({
             error: 'Erro ao enviar email de teste',
             message: error.message
