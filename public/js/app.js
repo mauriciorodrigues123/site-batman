@@ -17,6 +17,54 @@ let paymentId = null;
 let checkStatusInterval = null;
 let userEmail = null;
 
+// Carregar dados do pagamento do localStorage ao iniciar a página
+document.addEventListener('DOMContentLoaded', () => {
+    loadPaymentState();
+});
+
+// Função para salvar o estado do pagamento no localStorage
+function savePaymentState() {
+    if (paymentId) {
+        const paymentState = {
+            paymentId,
+            userEmail,
+            pixCode: pixCodeInput.value,
+            pixQrCode: qrcodeImg.src
+        };
+        localStorage.setItem('paymentState', JSON.stringify(paymentState));
+    }
+}
+
+// Função para carregar o estado do pagamento do localStorage
+function loadPaymentState() {
+    const savedState = localStorage.getItem('paymentState');
+    if (savedState) {
+        const paymentState = JSON.parse(savedState);
+        paymentId = paymentState.paymentId;
+        userEmail = paymentState.userEmail;
+        
+        if (paymentId) {
+            // Restaurar a interface de pagamento
+            paymentForm.style.display = 'none';
+            paymentInfo.style.display = 'block';
+            
+            // Restaurar QR code e código PIX
+            qrcodeImg.src = paymentState.pixQrCode;
+            pixCodeInput.value = paymentState.pixCode;
+            
+            // Verificar status do pagamento
+            checkPaymentStatus();
+        }
+    }
+}
+
+// Função para limpar o estado do pagamento
+function clearPaymentState() {
+    localStorage.removeItem('paymentState');
+    paymentId = null;
+    userEmail = null;
+}
+
 // Validação em tempo real do email
 emailInput.addEventListener('input', validateEmail);
 confirmEmailInput.addEventListener('input', validateEmails);
@@ -153,6 +201,9 @@ generatePixBtn.addEventListener('click', async () => {
 
         showNotification('QR Code PIX gerado com sucesso! Escaneie para realizar o pagamento.', 'success');
 
+        // Salvar estado do pagamento
+        savePaymentState();
+
         // Iniciar verificação de status
         checkPaymentStatus();
 
@@ -201,21 +252,10 @@ function showPaymentConfirmed() {
     showNotification('Pagamento confirmado com sucesso! Um email de confirmação foi enviado.', 'success');
 
     sendConfirmationEmailToUser(userEmail);
+    
+    // Limpar estado do pagamento quando confirmado
+    clearPaymentState();
 }
-
-// Evento para copiar código PIX
-copyPixBtn.addEventListener('click', () => {
-    pixCodeInput.select();
-    document.execCommand('copy');
-
-    const originalText = copyPixBtn.innerHTML;
-    copyPixBtn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
-    showNotification('Código PIX copiado para a área de transferência!', 'success');
-
-    setTimeout(() => {
-        copyPixBtn.innerHTML = originalText;
-    }, 2000);
-});
 
 // Evento para novo pagamento
 newPaymentBtn.addEventListener('click', () => {
@@ -240,6 +280,9 @@ newPaymentBtn.addEventListener('click', () => {
     paymentForm.style.display = 'block';
     paymentInfo.style.display = 'none';
 
+    // Limpar estado do pagamento
+    clearPaymentState();
+    
     paymentId = null;
     userEmail = null;
 });
