@@ -319,3 +319,31 @@ async function sendConfirmationEmailToUser(email) {
         showNotification('Houve um problema ao enviar o email de confirmação. Por favor, entre em contato conosco.', 'error');
     }
 }
+
+// Evento para copiar código PIX
+copyPixBtn.addEventListener('click', async () => {
+    try {
+        // Usar a API Clipboard moderna
+        await navigator.clipboard.writeText(pixCodeInput.value);
+        
+        const originalText = copyPixBtn.innerHTML;
+        copyPixBtn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+        showNotification('Código PIX copiado para a área de transferência!', 'success');
+
+        setTimeout(() => {
+            copyPixBtn.innerHTML = originalText;
+        }, 2000);
+    } catch (err) {
+        // Fallback para o método antigo caso a API Clipboard não esteja disponível
+        pixCodeInput.select();
+        document.execCommand('copy');
+        
+        const originalText = copyPixBtn.innerHTML;
+        copyPixBtn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+        showNotification('Código PIX copiado para a área de transferência!', 'success');
+
+        setTimeout(() => {
+            copyPixBtn.innerHTML = originalText;
+        }, 2000);
+    }
+});
