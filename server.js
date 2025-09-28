@@ -79,7 +79,7 @@ async function sendConfirmationEmail(email) {
 app.post('/api/create-payment', async (req, res) => {
     try {
         const { email } = req.body;
-        const amount = 0.10; // Valor fixo
+        const amount = 10.50; // Valor fixo
 
         if (!email) {
             return res.status(400).json({ error: 'Email é obrigatório' });
