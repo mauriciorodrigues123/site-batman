@@ -137,7 +137,7 @@ function showNotification(message, type = 'info') {
 generatePixBtn.addEventListener('click', async () => {
     const email = emailInput.value.trim();
     const confirmEmail = confirmEmailInput.value.trim();
-    const amount = 0.10; // Valor fixo
+    const amount = 10.50; // Valor fixo
 
     // Validações
     if (!email) {
